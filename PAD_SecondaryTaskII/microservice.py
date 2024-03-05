@@ -1,7 +1,7 @@
 import uuid
 
 from flask_socketio import SocketIO
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_pymongo import PyMongo
 from redis import Redis
@@ -29,24 +29,41 @@ def sql_user(id):
         if user is None:
             # If not in cache, get user from database
             user = Users.query.get(id)
+            if user is None:
+                return {'error': 'User not found'}, 404
             # Store user in cache
             redis.set(id, pickle.dumps(user))
-        return {'firstname': user.firstname, 'lastname': user.lastname}
+            return jsonify({'firstname': user.firstname, 'lastname': user.lastname})
+        print(user)
+        return jsonify({'firstname': user.firstname, 'lastname': user.lastname})
     elif request.method == 'POST':
-        firstname = request.json['firstname']
-        lastname = request.json['lastname']
-        new_user = Users(id=id, firstname=firstname, lastname=lastname)
+        firstname = request.json.get('firstname')
+        lastname = request.json.get('lastname')
+        if not firstname or not lastname:
+            return {'error': 'Missing firstname or lastname in the request'}, 400
+        new_user = Users(id_user=id, firstname=firstname, lastname=lastname)
         db.session.add(new_user)
         db.session.commit()
-        return {'message': 'Users created successfully'}
+        return {'message': 'User created successfully'}
     elif request.method == 'PUT':
         user = Users.query.get(id)
-        user.firstname = request.json['firstname']
-        user.lastname = request.json['lastname']
-        db.session.commit()
-        # Update user in cache
-        redis.set(id, pickle.dumps(user))
-        return {'message': 'Users updated successfully'}
+        if user is None:
+            return {'error': 'User not found'}, 404
+
+        # Reattach the user to the session
+        user = db.session.merge(user)
+
+        user.firstname = request.json.get('firstname', user.firstname)
+        user.lastname = request.json.get('lastname', user.lastname)
+
+        try:
+            db.session.commit()
+            # Update user in cache
+            redis.set(id, pickle.dumps(user))
+            return {'message': 'User updated successfully'}
+        except Exception as e:
+            db.session.rollback()
+            return {'error': f'Error updating user: {str(e)}'}, 500
 
 
 import random
@@ -55,41 +72,60 @@ import random
 app.config["MONGO_URI"] = "mongodb://mongo1:27017,mongo2:27018,mongo3:27019,mongo4:27020/pad?replicaSet=rs0"
 mongo = PyMongo(app)
 
+
 @app.route('/nosql/users/<id>', methods=['GET', 'POST', 'PUT'])
 def nosql_user(id):
     if request.method == 'GET':
         # Try to get user from cache
-        user = pickle.loads(redis.get(id)) if redis.get(id) else None
-        if user is None:
+        # user = pickle.loads(redis.get(id)) if redis.get(id) else None
+        # if user is None:
             # If not in cache, get user from database
             user = mongo.db.users.find_one({'_id': id})
+            if user is None:
+                return jsonify({'error': 'User not found'}), 404
             # Store user in cache
-            redis.set(id, pickle.dumps(user))
-        return {'firstname': user['firstname'], 'lastname': user['lastname']}
+            # redis.set(id, pickle.dumps(user))
+            return jsonify({'firstname': user["firstname"], 'lastname': user["lastname"]})
+
+        # return jsonify(user)
     elif request.method == 'POST':
         firstname = request.json['firstname']
         lastname = request.json['lastname']
-        mongo.db.users.insert_one({'_id': id, 'firstname': firstname, 'lastname': lastname})
-        return {'message': 'Users created successfully', 'id': id}
+
+        # Try to insert user in MongoDB
+        try:
+            mongo.db.users.insert_one({'_id': id, 'firstname': firstname, 'lastname': lastname})
+        except Exception as e:
+            return jsonify({'error': f'Error creating user: {str(e)}'}), 400
+
+        # Update user in cache
+        user = mongo.db.users.find_one({'_id': id})
+        redis.set(id, pickle.dumps(user))
+
+        return {'message': 'User created successfully', 'id': id}
     elif request.method == 'PUT':
         firstname = request.json['firstname']
         lastname = request.json['lastname']
         mongo.db.users.update_one({'_id': id}, {'$set': {'firstname': firstname, 'lastname': lastname}})
+
         # Update user in cache
         user = mongo.db.users.find_one({'_id': id})
         redis.set(id, pickle.dumps(user))
-        return {'message': 'Users updated successfully'}
+
+        return {'message': 'User updated successfully'}
 
 
 @app.route('/sql/users', methods=['POST'])
 def sql_user_p():
     if request.method == 'POST':
-        firstname = request.json['firstname']
-        lastname = request.json['lastname']
-        new_user = Users( firstname=firstname, lastname=lastname)
+        firstname = request.json.get('firstname')
+        lastname = request.json.get('lastname')
+        if not firstname or not lastname:
+            return {'error': 'Missing firstname or lastname in the request'}, 400
+        new_user = Users(id_user=None, firstname=firstname, lastname=lastname)
         db.session.add(new_user)
         db.session.commit()
-        return {'message': 'Users created successfully'}
+        return {'message': 'User created successfully'}
 
 
 # Define a shared variable for 2 Phase Commit
