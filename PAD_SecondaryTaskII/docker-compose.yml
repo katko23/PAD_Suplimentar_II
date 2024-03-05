@@ -1,7 +1,7 @@
 version: '3'
 services:
   app:
-    image: pad_2
+    image: katko/pad_suplimentary_2:latest
     ports:
       - "5000:5000"
     volumes:
