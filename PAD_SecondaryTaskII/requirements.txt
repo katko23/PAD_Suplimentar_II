@@ -1,0 +1,8 @@
+flask
+flask_sqlalchemy
+flask_pymongo
+flask_socketio
+redis
+psycopg2-binary
+pymongo
+pickle-mixin
