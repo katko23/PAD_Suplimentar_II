@@ -47,5 +47,4 @@ SocketIO is configured, indicating potential support for WebSocket communication
 [dockerhub](https://hub.docker.com/repository/docker/katko/pad_suplimentary_2/general)
 
 ## Postman
-[postman
-](https://www.postman.com/katko23/workspace/utm/collection/24315989-d6cd493a-c90b-40e1-922b-0974b9accf56?action=share&creator=24315989)https://www.postman.com/katko23/workspace/utm/collection/24315989-d6cd493a-c90b-40e1-922b-0974b9accf56?action=share&creator=24315989
+[postman](https://www.postman.com/katko23/workspace/utm/collection/24315989-d6cd493a-c90b-40e1-922b-0974b9accf56?action=share&creator=24315989)
