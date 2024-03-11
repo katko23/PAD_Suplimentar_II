@@ -4,8 +4,8 @@ services:
     image:  katko/pad_suplimentary_2:latest
     ports:
       - "5000:5000"
-    volumes:
-      - .:/app
+    # volumes:
+    #   - .:/app
     depends_on:
       - mongo1
       - mongo2
